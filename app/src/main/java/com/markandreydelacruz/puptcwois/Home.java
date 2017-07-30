@@ -1,7 +1,10 @@
 package com.markandreydelacruz.puptcwois;
 
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Menu;
@@ -11,9 +14,16 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.AsyncHttpResponseHandler;
+import com.loopj.android.http.ResponseHandlerInterface;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import cz.msebera.android.httpclient.Header;
+import cz.msebera.android.httpclient.HttpResponse;
 
 public class Home extends AppCompatActivity {
 
@@ -43,6 +53,25 @@ public class Home extends AppCompatActivity {
             }
         });
 
+        ImageButton imageButtonBatchScan = (ImageButton) findViewById(R.id.imageButtonBatchScan);
+        imageButtonBatchScan.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                getDateAndTime("api/getDateAndTime.php");
+            }
+        });
+
+
+        ImageButton imageButtonAvailableReports = (ImageButton) findViewById(R.id.imageButtonAvailableReports);
+        imageButtonAvailableReports.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Home.this, AvailableReports.class);
+                intent.putExtra("HOST", HOST);
+                startActivity(intent);
+            }
+        });
+
         try {
             JSONObject jsonObject = new JSONObject(userDetails);
             JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("userDetails");
@@ -59,6 +88,89 @@ public class Home extends AppCompatActivity {
         }
         textViewUsername.setText(username.toUpperCase());
         textViewName.setText("Welcome, " + firstname + " " + lastname);
+    }
+
+    private void getDateAndTime(String URL_GET_DATE_TIME) {
+        final AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
+        asyncHttpClient.setConnectTimeout(3000);
+        asyncHttpClient.setResponseTimeout(3000);
+        asyncHttpClient.setMaxRetriesAndTimeout(0, 0);
+        asyncHttpClient.get(Home.this, HOST + URL_GET_DATE_TIME, new AsyncHttpResponseHandler() {
+            ProgressDialog dialog;
+            @Override
+            public void onStart() {
+                super.onStart();
+                dialog = new ProgressDialog(Home.this);
+                dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                dialog.setMessage("Please Wait...");
+                dialog.setIndeterminate(false);
+                dialog.setCancelable(true);
+                dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    public void onCancel(DialogInterface dialog) {
+                        Toast.makeText(getApplicationContext(), "Canceled", Toast.LENGTH_LONG).show();
+                    }
+                });
+                dialog.show();
+            }
+
+            @Override
+            public void onPreProcessResponse(ResponseHandlerInterface instance, HttpResponse response) {
+                super.onPreProcessResponse(instance, response);
+                SystemClock.sleep(500);
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, final byte[] responseBody) {
+                if (this.dialog.isShowing()) {
+                    this.dialog.dismiss();
+                }
+                String date = null;
+                String time = null;
+                if(responseBody == null) {
+                    Toast.makeText(getApplicationContext(), "No Response. Try Again.", Toast.LENGTH_LONG).show();
+                } else {
+                    try {
+                        JSONObject jsonObject = new JSONObject(new String(responseBody)).getJSONObject("data");
+                        int count = 0;
+                        while(count < jsonObject.length()){
+                            date = jsonObject.getString("date");
+                            time= jsonObject.getString("time");
+                            count++;
+                        }
+                        if (date != null) {
+                            if (date.trim().isEmpty() || time.trim().isEmpty()) {
+                                Toast.makeText(getApplicationContext(), "No Response. Try Again.", Toast.LENGTH_LONG).show();
+                            } else {
+                                Intent intent = new Intent(Home.this, ScanEquipments.class);
+                                intent.putExtra("date", date);
+                                intent.putExtra("time", time);
+                                intent.putExtra("HOST", HOST);
+                                startActivity(intent);
+                            }
+                        }
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        Toast.makeText(getApplicationContext(), "No Response. Try Again.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
+                if (this.dialog.isShowing()) {
+                    this.dialog.dismiss();
+                }
+                Toast.makeText(getApplicationContext(), "Connection Failed", Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onFinish() {
+                super.onFinish();
+                if (this.dialog.isShowing()) {
+                    this.dialog.dismiss();
+                }
+            }
+        });
     }
 
     @Override

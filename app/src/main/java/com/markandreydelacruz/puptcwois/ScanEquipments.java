@@ -1,111 +1,89 @@
 package com.markandreydelacruz.puptcwois;
 
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.Color;
-import android.os.Build;
-import android.os.Handler;
 import android.os.SystemClock;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.Html;
-import android.text.method.LinkMovementMethod;
+import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.gson.Gson;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
 import com.loopj.android.http.ResponseHandlerInterface;
-import com.rengwuxian.materialedittext.MaterialEditText;
-import com.weiwangcn.betterspinner.library.material.MaterialBetterSpinner;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.util.ArrayList;
 
 import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.HttpResponse;
 
-public class MainActivity extends AppCompatActivity {
-
-    private String HOST = "http://192.168.137.1/systems/CWOIS-2017/";
-    private final String URL_LOGIN = HOST + "api/login.php";
-    private boolean doubleBackToExitPressedOnce = false;
-    private MaterialEditText editTextUsername, editTextPassword;
-    private Button buttonLogin;
-    private TextView textViewCwoisSite;
-    private String username, password;
+public class ScanEquipments extends AppCompatActivity implements  AdapterView.OnItemSelectedListener {
+    private String HOST, date, time;
+    private String URL_START_SCANNING;
+    private int location_id;
+    private String locationName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_scanequipments);
         if(getSupportActionBar() != null) {
-            getSupportActionBar().hide();
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
-        setTitle("");
-        initComp();
-    }
+        setTitle("Scan Equipments");
+        HOST = getIntent().getExtras().getString("HOST");
+        URL_START_SCANNING = HOST + "api/startScanning.php";
+        date = getIntent().getExtras().getString("date");
+        time = getIntent().getExtras().getString("time");
 
-    private void initComp() {
-        editTextUsername = (MaterialEditText) findViewById(R.id.editTextUsername);
-        editTextPassword = (MaterialEditText) findViewById(R.id.editTextPassword);
-        textViewCwoisSite = (TextView) findViewById(R.id.textViewCwoisSite);
-        buttonLogin = (Button) findViewById(R.id.buttonLogin);
+        TextView textViewDate = (TextView) findViewById(R.id.textViewDate);
+        TextView textViewTime = (TextView) findViewById(R.id.textViewTime);
+        textViewDate.setText(date);
+        textViewTime.setText(time);
 
-        String cwoisLink = "<a href=\"http://www.pup.edu.ph/CWOIS\">www.pup.edu.ph/CWOIS</a>";
-        if (Build.VERSION.SDK_INT >= 24) {
-            textViewCwoisSite.setText( Html.fromHtml(cwoisLink, Build.VERSION.SDK_INT)); // for 24 api and more
-            textViewCwoisSite.setMovementMethod(LinkMovementMethod.getInstance());
-        } else {
-            textViewCwoisSite.setText(Html.fromHtml(cwoisLink)); // or for older api
-            textViewCwoisSite.setMovementMethod(LinkMovementMethod.getInstance());
-        }
+        Spinner spinnerLocation = (Spinner) findViewById(R.id.spinner);
+        ArrayAdapter  adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, LOCATION);
+        spinnerLocation.setAdapter(adapter);
+        spinnerLocation.setOnItemSelectedListener(this);
 
-        buttonLogin.setOnClickListener(new View.OnClickListener() {
+        Button buttonStartBatchScan = (Button) findViewById(R.id.buttonStartBatchScan);
+        buttonStartBatchScan.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hideSoftKeyboard(MainActivity.this);
-                username = editTextUsername.getText().toString();
-                password = editTextPassword.getText().toString();
-                if(username.trim().isEmpty() || password.trim().isEmpty()) {
-                    Toast.makeText(getApplicationContext(), "Empty username / Empty password", Toast.LENGTH_SHORT).show();
-                } else {
-                    validate(URL_LOGIN);
-                }
+                startScanning(URL_START_SCANNING);
             }
         });
     }
 
-    private void validate(String URL_LOGIN) {
+    private void startScanning(String URL_START_SCANNING) {
         final AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
         asyncHttpClient.setConnectTimeout(3000);
         asyncHttpClient.setResponseTimeout(3000);
         asyncHttpClient.setMaxRetriesAndTimeout(0, 0);
         RequestParams params = new RequestParams();
-        params.put("username", username);
-        params.put("password", password);
-        asyncHttpClient.post(MainActivity.this, URL_LOGIN, params, new AsyncHttpResponseHandler() {
+        params.put("location_id", location_id);
+        params.put("date", date);
+        params.put("time", time);
+        asyncHttpClient.post(ScanEquipments.this, URL_START_SCANNING, params, new AsyncHttpResponseHandler() {
             ProgressDialog dialog;
             @Override
             public void onStart() {
                 super.onStart();
-                dialog = new ProgressDialog(MainActivity.this);
+                dialog = new ProgressDialog(ScanEquipments.this);
                 dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                 dialog.setMessage("Please wait...");
                 dialog.setIndeterminate(false);
-                dialog.setCancelable(true);
+                dialog.setCancelable(false);
                 dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
                     public void onCancel(DialogInterface dialog) {
                         Toast.makeText(getApplicationContext(), "Process Canceled", Toast.LENGTH_SHORT).show();
@@ -124,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(int statusCode, Header[] headers, final byte[] responseBody) {
                 String status = null;
+                String report_id = null;
                 if (this.dialog.isShowing()) {
                     this.dialog.dismiss();
                 }
@@ -135,17 +114,19 @@ public class MainActivity extends AppCompatActivity {
                         int count = 0;
                         while(count < jsonObject.length()){
                             status = jsonObject.getString("status");
+                            report_id = jsonObject.getString("report_id");
                             count++;
                         }
                         if (status != null) {
                             if(status.equals("success")){
-                                Intent intent = new Intent(MainActivity.this, Home.class);
-                                intent.putExtra("userDetails", new String(responseBody));
+                                Intent intent = new Intent(ScanEquipments.this, BatchScan.class);
                                 intent.putExtra("HOST", HOST);
+                                intent.putExtra("locationName", locationName);
+                                intent.putExtra("report_id", report_id);
                                 startActivity(intent);
-                                finish();
+//                                finish();
                             } else {
-                                Toast.makeText(getApplicationContext(), "Invalid Username or Password", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getApplicationContext(), "Unstable Connection. Try Again.", Toast.LENGTH_SHORT).show();
                             }
                         }
                     } catch (JSONException e) {
@@ -173,27 +154,34 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public static void hideSoftKeyboard(Activity activity) {
-        InputMethodManager inputMethodManager =
-                (InputMethodManager) activity.getSystemService(
-                        Activity.INPUT_METHOD_SERVICE);
-        inputMethodManager.hideSoftInputFromWindow(
-                activity.getCurrentFocus().getWindowToken(), 0);
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+        Toast.makeText(getApplicationContext(), "Location: " + ((TextView)view).getText(), Toast.LENGTH_SHORT).show();
+        location_id = i+1;
+        locationName = (String) ((TextView)view).getText();
+//        Toast.makeText(getApplicationContext(), "Location ID: " + location_id, Toast.LENGTH_SHORT).show();
     }
 
     @Override
-    public void onBackPressed() {
-        if (doubleBackToExitPressedOnce) {
-            super.onBackPressed();
-            return;
-        }
-        this.doubleBackToExitPressedOnce = true;
-        Toast.makeText(this, "Press back again to exit.", Toast.LENGTH_SHORT).show();
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                doubleBackToExitPressedOnce=false;
-            }
-        }, 2000);
+    public void onNothingSelected(AdapterView<?> adapterView) {
+
     }
+
+    private static final String[] LOCATION = new String[] {
+            "DOSTLAB", "ABOITIZ", "REGISTRAR", "DIRECTOR", "HSS", "LIBRARY", "DENTAL", "MEDICAL", "SECURITY", "ACCOUNTING", "HAP", "CSC", "FACULTY", "GUIDANCE"
+    };
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            finish();
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+
 }

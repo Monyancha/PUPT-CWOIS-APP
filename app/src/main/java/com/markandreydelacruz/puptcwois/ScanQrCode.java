@@ -5,6 +5,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.SystemClock;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.MenuItem;
@@ -75,10 +76,10 @@ public class ScanQrCode extends AppCompatActivity {
         spinnerStatus = (MaterialBetterSpinner) findViewById(R.id.spinnerStatus);
         ArrayAdapter<String> spinnerStatusArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, STATUS);
         spinnerStatus.setAdapter(spinnerStatusArrayAdapter);
-
-        spinnerLocation = (MaterialBetterSpinner) findViewById(R.id.spinnerLocation);
-        ArrayAdapter<String> spinnerLocationArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, LOCATION);
-        spinnerLocation.setAdapter(spinnerLocationArrayAdapter);
+//
+//        spinnerLocation = (MaterialBetterSpinner) findViewById(R.id.spinnerLocation);
+//        ArrayAdapter<String> spinnerLocationArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, LOCATION);
+//        spinnerLocation.setAdapter(spinnerLocationArrayAdapter);
 
 
         final Button buttonScanAgain = (Button) findViewById(R.id.buttonScanAgain);
@@ -104,12 +105,12 @@ public class ScanQrCode extends AppCompatActivity {
     private void saveUpdate() {
         String status, location;
         status = spinnerStatus.getText().toString();
-        location = spinnerLocation.getText().toString();
+//        location = spinnerLocation.getText().toString();
 
         final AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
         RequestParams params = new RequestParams();
         params.put("status", status);
-        params.put("location", location);
+//        params.put("location", location);
         params.put("equip_id", equip_id);
         asyncHttpClient.post(ScanQrCode.this, HOST + "api/updateScanDetails.php", params, new AsyncHttpResponseHandler() {
             ProgressDialog dialog;
@@ -142,7 +143,6 @@ public class ScanQrCode extends AppCompatActivity {
                 } else {
                     try {
                         JSONObject jsonObject = new JSONObject(new String(responseBody));
-
                         int count = 0;
                         while(count < jsonObject.length()){
                             status = jsonObject.getString("status");
@@ -150,7 +150,20 @@ public class ScanQrCode extends AppCompatActivity {
                             count++;
                         }
                         if(status.equals("success")){
-                            Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+//                            Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+                            AlertDialog.Builder builder = new AlertDialog.Builder(ScanQrCode.this);
+                            builder.setCancelable(true).setMessage(message)
+                                    .setNeutralButton("OK", new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialogInterface, int i) {
+//                                                Intent intent = new Intent(BatchScan.this, Home.class);
+//                                                startActivity(intent);
+//                                            finish();
+                                        }
+                                    });
+                            AlertDialog alertDialog = builder.create();
+                            alertDialog.setTitle("Success");
+                            alertDialog.show();
                         } else {
                             Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
                         }
@@ -171,7 +184,7 @@ public class ScanQrCode extends AppCompatActivity {
             @Override
             public void onFinish() {
                 super.onFinish();
-                new BackgroundTaskScanQrCode().execute();
+//                new BackgroundTaskScanQrCode().execute();
                 if (this.dialog.isShowing()) {
                     this.dialog.dismiss();
                 }
@@ -304,7 +317,7 @@ public class ScanQrCode extends AppCompatActivity {
         tx_stockOnHand.setText(firstname + " " + lastname);
         emptyLayout.requestFocus();
         spinnerStatus.setText(status);
-        spinnerLocation.setText(originalLocation);
+//        spinnerLocation.setText(originalLocation);
     }
 
     @Override
